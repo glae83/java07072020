@@ -21,6 +21,7 @@ import javafx.stage.WindowEvent;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URL;
@@ -152,7 +153,11 @@ public class Controller implements Initializable {
                             textArea.appendText(str + "\n");
                         }
                     }
-                } catch (IOException e) {
+                    }
+                catch (EOFException e) {
+                    System.out.println("Вас отключили. Время ожидания истекло!");
+                }
+                catch (IOException e) {
                     e.printStackTrace();
                 } finally {
                     try {
