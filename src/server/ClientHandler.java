@@ -2,8 +2,13 @@ package server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class ClientHandler {
     Server server;
@@ -13,7 +18,6 @@ public class ClientHandler {
 
     private String nick;
     private String login;
-
     public ClientHandler(Server server, Socket socket) {
         try {
             this.server = server;
@@ -23,12 +27,10 @@ public class ClientHandler {
 
             new Thread(() -> {
                 try {
-//                    socket.setSoTimeout(5000);
-
+                   socket.setSoTimeout(120000);
                     //цикл аутентификации
                     while (true) {
                         String str = in.readUTF();
-
                         if (str.startsWith("/auth ")) {
                             String[] token = str.split("\\s");
                             if (token.length < 3) {
@@ -44,6 +46,7 @@ public class ClientHandler {
                                     nick = newNick;
                                     server.subscribe(this);
                                     System.out.printf("Клиент %s подключился \n", nick);
+                                    socket.setSoTimeout(0);
                                     break;
                                 } else {
                                     sendMsg("С этим логином уже авторизовались");
@@ -66,34 +69,30 @@ public class ClientHandler {
                                 sendMsg("/regresult failed");
                             }
                         }
-
                     }
                     //цикл работы
-                    while (true) {
+                    while (true)  {
                         String str = in.readUTF();
-
                         if (str.startsWith("/")) {
                             if (str.equals("/end")) {
                                 out.writeUTF("/end");
                                 break;
                             }
-
                             if (str.startsWith("/w ")) {
                                 String[] token = str.split("\\s", 3);
                                 if (token.length < 3) {
                                     continue;
                                 }
-
                                 server.privateMsg(this, token[1], token[2]);
                             }
-
                         } else {
                             server.broadcastMsg(this, str);
                         }
                     }
                 }
-                ///
-
+                catch (SocketTimeoutException e) {
+                    System.out.println("Ждали 2 минуты и клиента отключили!");
+                }
                 catch (IOException e) {
                     e.printStackTrace();
                 } finally {
@@ -102,7 +101,8 @@ public class ClientHandler {
                     try {
                         in.close();
                         out.close();
-                    } catch (IOException e) {
+                    }
+                    catch (IOException e) {
                         e.printStackTrace();
                     }
                     try {
@@ -117,8 +117,6 @@ public class ClientHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
     void sendMsg(String str) {
